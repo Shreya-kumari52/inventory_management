@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <h2>🔐 Deepak Paint & Hardware Store Login</h2>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+
+<div class="box">
+  <h2>🔐 Owner Login</h2>
+
+  <form method="POST">
+    <input name="username" placeholder="User ID" required>
+    <input name="password" type="password" placeholder="Password" required>
+
+    {% if error %}
+    <p style="color:yellow;">{{error}}</p>
+    {% endif %}
+
+    <button>Login</button>
+  </form>
+</div>
+
+</body>
+</html>

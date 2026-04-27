@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Deepak Paint & Hardware Store</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<!-- 🔥 MAIN NAVBAR -->
+<div class="navbar">🎨 Deepak Paint & Hardware Store</div>
+
+<!-- 🔥 DASHBOARD TITLE -->
+<h2 style="text-align:center; margin-top:20px;">
+  ✨ Smart Inventory Dashboard
+</h2>
+
+<div class="menu">
+
+  <a href="/items?category=Paint">
+    <button>🎨 Paint</button>
+  </a>
+
+  <a href="/items?category=Hardware">
+    <button>🔧 Hardware</button>
+  </a>
+
+</div>
+
+<div style="text-align:center; margin-top:30px;">
+  <a href="/logout">
+    <button class="delete">🚪 Logout</button>
+  </a>
+</div>
+
+<!-- 🔥 MOBILE APP BOTTOM NAV -->
+<div class="bottom-nav">
+  <a href="/dashboard" class="active">🏠<span>Home</span></a>
+  <a href="/items">📦<span>Items</span></a>
+  <a href="/add">➕<span>Add</span></a>
+  <a href="/logout">🚪<span>Logout</span></a>
+</div>
+
+</body>
+</html>

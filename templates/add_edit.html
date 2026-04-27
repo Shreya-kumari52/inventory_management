@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Deepak Paint & Hardware Store</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<!-- 🔥 NAVBAR -->
+<div class="navbar">➕ Add / Edit Item</div>
+
+<div class="container">
+
+<div class="box">
+
+<form method="POST" enctype="multipart/form-data">
+
+  <label>Item Name</label>
+  <input name="name" value="{{item.name if item}}" placeholder="Enter item name" required>
+
+  <label>Category</label>
+  <select name="category">
+    <option {% if item and item.category=='Paint' %}selected{% endif %}>Paint</option>
+    <option {% if item and item.category=='Hardware' %}selected{% endif %}>Hardware</option>
+  </select>
+
+  <label>Weight</label>
+  <input name="weight" value="{{item.weight if item}}" placeholder="Enter weight" required>
+
+  <label>Cost Price</label>
+  <input name="purchase" value="{{item.purchase_price if item}}" placeholder="Enter cost price" required>
+
+  <!-- 🔥 hidden selling price -->
+  <input type="hidden" name="selling" value="{{item.selling_price if item else 0}}">
+
+  <label>Quality</label>
+  <input name="quality" value="{{item.quality if item}}" placeholder="Enter quality" required>
+
+  <label>Upload Image</label>
+  <input type="file" name="image">
+
+  <button>💾 Save Item</button>
+
+</form>
+
+</div>
+
+</div>
+
+<!-- 🔥 MOBILE APP NAV -->
+<div class="bottom-nav">
+  <a href="/dashboard">🏠<span>Home</span></a>
+  <a href="/items">📦<span>Items</span></a>
+  <a href="/add" class="active">➕<span>Add</span></a>
+  <a href="/logout">🚪<span>Logout</span></a>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Deepak Paint & Hardware Store</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="navbar">🎨 Deepak Paint & Hardware Store</div>
+
+<div class="container">
+
+<form method="GET" action="/items" class="top-bar">
+  <input name="search" placeholder="🔍 Search items...">
+
+  <select name="category">
+    <option value="">All</option>
+    <option>Paint</option>
+    <option>Hardware</option>
+  </select>
+
+  <button>Search</button>
+</form>
+
+<a href="/add"><button>+ Add Item</button></a>
+
+<div class="grid">
+
+{% for item in items %}
+<div class="card">
+
+  <!-- IMAGE CLICKABLE -->
+  <div class="img-box">
+    <img src="{{ url_for('static', filename='uploads/' + item.image) }}"
+         class="card-img"
+         onclick="openImage(this.src)"
+         onerror="this.src='https://via.placeholder.com/300'">
+  </div>
+
+  <div class="card-body">
+
+    <h3>{{item.name}}</h3>
+
+    <p>⚖ Weight: {{item.weight}}</p>
+    <p>💰 Cost Price: ₹{{item.purchase_price}}</p>
+    <p>⭐ Quality: {{item.quality}}</p>
+
+    <div class="actions">
+      <a href="/edit/{{item.id}}">
+        <button class="edit">Edit</button>
+      </a>
+
+      <a href="/delete/{{item.id}}">
+        <button class="delete">Delete</button>
+      </a>
+    </div>
+
+  </div>
+
+</div>
+{% endfor %}
+
+</div>
+
+</div>
+
+<!-- 🔥 IMAGE POPUP -->
+<div id="imgModal" class="modal" onclick="closeImage()">
+  <span class="close">&times;</span>
+  <img class="modal-content" id="fullImg">
+</div>
+
+<!-- 🔥 MOBILE APP BOTTOM NAV -->
+<div class="bottom-nav">
+  <a href="/dashboard">🏠<span>Home</span></a>
+  <a href="/items" class="active">📦<span>Items</span></a>
+  <a href="/add">➕<span>Add</span></a>
+  <a href="/logout">🚪<span>Logout</span></a>
+</div>
+
+<!-- 🔥 SCRIPT -->
+<script>
+function openImage(src) {
+  document.getElementById("imgModal").style.display = "flex";
+  document.getElementById("fullImg").src = src;
+}
+
+function closeImage() {
+  document.getElementById("imgModal").style.display = "none";
+}
+</script>
+
+</body>
+</html>

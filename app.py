@@ -12,10 +12,10 @@ def get_db():
         user="root",
         password="root@123",
         database="inventory_db",
-        autocommit=True   # 🔥 performance improve
+        autocommit=True
     )
 
-# 🔥 IMPORTANT FIX (static/uploads use करो)
+# UPLOAD FOLDER
 UPLOAD_FOLDER = os.path.join("static", "uploads")
 
 if not os.path.exists(UPLOAD_FOLDER):
@@ -53,7 +53,7 @@ def dashboard():
         return redirect('/')
     return render_template('dashboard.html')
 
-# ITEMS
+# ITEMS (🔥 PAGINATION + SEARCH)
 @app.route('/items')
 def items():
     if 'user' not in session:
@@ -64,26 +64,55 @@ def items():
 
     search = request.args.get('search', '')
     category = request.args.get('category', '')
+    page = request.args.get('page', 1, type=int)
 
-    # 🔥 IMPROVED QUERY
+    limit = 12
+    offset = (page - 1) * limit
+
     query = "SELECT * FROM items WHERE 1=1"
     params = []
 
     if search:
-        query += " AND name LIKE %s"
-        params.append(f"%{search}%")
+        query += " AND (name LIKE %s OR category LIKE %s)"
+        params.extend([f"%{search}%", f"%{search}%"])
 
     if category:
         query += " AND category=%s"
         params.append(category)
 
+    # 🔢 COUNT QUERY
+    count_query = "SELECT COUNT(*) as total FROM items WHERE 1=1"
+    count_params = []
+
+    if search:
+        count_query += " AND (name LIKE %s OR category LIKE %s)"
+        count_params.extend([f"%{search}%", f"%{search}%"])
+
+    if category:
+        count_query += " AND category=%s"
+        count_params.append(category)
+
+    cursor.execute(count_query, count_params)
+    total = cursor.fetchone()['total']
+
+    # 🔥 APPLY LIMIT
+    query += " LIMIT %s OFFSET %s"
+    params.extend([limit, offset])
+
     cursor.execute(query, params)
     data = cursor.fetchall()
+
+    total_pages = (total // limit) + (1 if total % limit else 0)
 
     cursor.close()
     db.close()
 
-    return render_template('items.html', items=data)
+    return render_template('items.html',
+                           items=data,
+                           page=page,
+                           total_pages=total_pages,
+                           search=search,
+                           category=category)
 
 # ADD ITEM
 @app.route('/add', methods=['GET','POST'])
@@ -183,7 +212,7 @@ def delete(id):
 
     return redirect('/items')
 
-# IMAGE SHOW (अब static use हो रहा है, ये optional है)
+# IMAGE SHOW
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)

@@ -11,41 +11,50 @@
 
 <div class="container">
 
+<!-- 🔍 SEARCH -->
 <form method="GET" action="/items" class="top-bar">
-  <input name="search" placeholder="🔍 Search items...">
+  <input name="search" placeholder="🔍 Search items..." value="{{search}}">
 
   <select name="category">
     <option value="">All</option>
-    <option>Paint</option>
-    <option>Hardware</option>
+    <option {% if category=='Paint' %}selected{% endif %}>Paint</option>
+    <option {% if category=='Hardware' %}selected{% endif %}>Hardware</option>
   </select>
 
   <button>Search</button>
 </form>
 
-<a href="/add"><button>+ Add Item</button></a>
+<!-- ➕ ADD -->
+<div style="text-align:center;">
+  <a href="/add"><button>+ Add Item</button></a>
+</div>
 
+<!-- 📦 ITEMS GRID -->
 <div class="grid">
 
 {% for item in items %}
 <div class="card">
 
-  <!-- IMAGE CLICKABLE -->
+  <!-- IMAGE -->
   <div class="img-box">
     <img src="{{ url_for('static', filename='uploads/' + item.image) }}"
          class="card-img"
          onclick="openImage(this.src)"
-         onerror="this.src='https://via.placeholder.com/300'">
+         onerror="this.src='https://via.placeholder.com/200'">
   </div>
 
+  <!-- DETAILS -->
   <div class="card-body">
 
-    <h3>{{item.name}}</h3>
+    <h3 class="item-title">{{item.name}}</h3>
 
-    <p>⚖ Weight: {{item.weight}}</p>
-    <p>💰 Cost Price: ₹{{item.purchase_price}}</p>
-    <p>⭐ Quality: {{item.quality}}</p>
+    <p class="item-weight">⚖ {{item.weight}}</p>
 
+    <p class="item-price">💰 ₹{{item.purchase_price}}</p>
+
+    <p class="item-quality">⭐ {{item.quality}}</p>
+
+    <!-- ACTION -->
     <div class="actions">
       <a href="/edit/{{item.id}}">
         <button class="edit">Edit</button>
@@ -63,23 +72,39 @@
 
 </div>
 
+<!-- 🔥 PAGINATION -->
+<div class="pagination">
+
+  {% if page > 1 %}
+    <a href="/items?page={{page-1}}&search={{search}}&category={{category}}">
+      <button>⬅ Prev</button>
+    </a>
+  {% endif %}
+
+  {% for p in range(1, total_pages+1) %}
+    <a href="/items?page={{p}}&search={{search}}&category={{category}}">
+      <button class="{% if p == page %}active{% endif %}">
+        {{p}}
+      </button>
+    </a>
+  {% endfor %}
+
+  {% if page < total_pages %}
+    <a href="/items?page={{page+1}}&search={{search}}&category={{category}}">
+      <button>Next ➡</button>
+    </a>
+  {% endif %}
+
 </div>
 
-<!-- 🔥 IMAGE POPUP -->
+</div>
+
+<!-- 🔍 IMAGE POPUP -->
 <div id="imgModal" class="modal" onclick="closeImage()">
   <span class="close">&times;</span>
   <img class="modal-content" id="fullImg">
 </div>
 
-<!-- 🔥 MOBILE APP BOTTOM NAV -->
-<div class="bottom-nav">
-  <a href="/dashboard">🏠<span>Home</span></a>
-  <a href="/items" class="active">📦<span>Items</span></a>
-  <a href="/add">➕<span>Add</span></a>
-  <a href="/logout">🚪<span>Logout</span></a>
-</div>
-
-<!-- 🔥 SCRIPT -->
 <script>
 function openImage(src) {
   document.getElementById("imgModal").style.display = "flex";

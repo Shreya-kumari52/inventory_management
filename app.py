@@ -5,7 +5,7 @@ import os
 app = Flask(__name__)
 app.secret_key = "secret123"
 
-# DB connection (✅ SQLite)
+# DB connection (SQLite)
 def get_db():
     conn = sqlite3.connect("database.db")
     conn.row_factory = sqlite3.Row
@@ -17,11 +17,12 @@ UPLOAD_FOLDER = os.path.join("static", "uploads")
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# 🔥 AUTO CREATE DATABASE
+# 🔥 AUTO CREATE DATABASE (ONLY ONE FUNCTION)
 def init_db():
     db = get_db()
     cursor = db.cursor()
 
+    # USERS TABLE
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,6 +31,7 @@ def init_db():
     )
     """)
 
+    # ITEMS TABLE
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,7 +45,7 @@ def init_db():
     )
     """)
 
-    # default users
+    # DEFAULT USERS
     cursor.execute("INSERT OR IGNORE INTO users (username,password) VALUES ('deepak','deepak123')")
     cursor.execute("INSERT OR IGNORE INTO users (username,password) VALUES ('raushan','raushan123')")
     cursor.execute("INSERT OR IGNORE INTO users (username,password) VALUES ('naman','naman123')")
@@ -51,6 +53,7 @@ def init_db():
     db.commit()
     db.close()
 
+# CALL INIT
 init_db()
 
 # LOGIN
@@ -64,7 +67,7 @@ def login():
         db = get_db()
         cursor = db.cursor()
 
-        cursor.execute("SELECT * FROM users WHERE username=? AND password=?",(username,password))
+        cursor.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
         user = cursor.fetchone()
 
         cursor.close()
@@ -112,7 +115,7 @@ def items():
         query += " AND category=?"
         params.append(category)
 
-    # COUNT
+    # COUNT QUERY
     count_query = "SELECT COUNT(*) FROM items WHERE 1=1"
     count_params = []
 
@@ -127,6 +130,7 @@ def items():
     cursor.execute(count_query, count_params)
     total = cursor.fetchone()[0]
 
+    # LIMIT
     query += " LIMIT ? OFFSET ?"
     params.extend([limit, offset])
 
@@ -171,7 +175,7 @@ def add():
         cursor.execute("""
             INSERT INTO items(name,category,weight,purchase_price,selling_price,quality,image)
             VALUES(?,?,?,?,?,?,?)
-        """,(name,category,weight,purchase,selling,quality,filename))
+        """, (name, category, weight, purchase, selling, quality, filename))
 
         db.commit()
         cursor.close()
@@ -207,13 +211,13 @@ def edit(id):
                 UPDATE items SET name=?, category=?, weight=?,
                 purchase_price=?, selling_price=?,
                 quality=?, image=? WHERE id=?
-            """,(name,category,weight,purchase,selling,quality,filename,id))
+            """, (name, category, weight, purchase, selling, quality, filename, id))
         else:
             cursor.execute("""
                 UPDATE items SET name=?, category=?, weight=?,
                 purchase_price=?, selling_price=?,
                 quality=? WHERE id=?
-            """,(name,category,weight,purchase,selling,quality,id))
+            """, (name, category, weight, purchase, selling, quality, id))
 
         db.commit()
         cursor.close()
@@ -221,7 +225,7 @@ def edit(id):
 
         return redirect('/items')
 
-    cursor.execute("SELECT * FROM items WHERE id=?",(id,))
+    cursor.execute("SELECT * FROM items WHERE id=?", (id,))
     item = cursor.fetchone()
 
     cursor.close()
@@ -238,7 +242,7 @@ def delete(id):
     db = get_db()
     cursor = db.cursor()
 
-    cursor.execute("DELETE FROM items WHERE id=?",(id,))
+    cursor.execute("DELETE FROM items WHERE id=?", (id,))
     db.commit()
 
     cursor.close()

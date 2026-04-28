@@ -7,7 +7,7 @@ app.secret_key = "secret123"
 
 # DB connection (SQLite)
 def get_db():
-    conn = sqlite3.connect("/tmp/database.db")
+    conn = sqlite3.connect("/tmp/database.db")   # 🔥 Render fix
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -17,7 +17,7 @@ UPLOAD_FOLDER = os.path.join("static", "uploads")
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# 🔥 AUTO CREATE DATABASE (ONLY ONE FUNCTION)
+# 🔥 AUTO CREATE DATABASE
 def init_db():
     db = get_db()
     cursor = db.cursor()
@@ -45,10 +45,12 @@ def init_db():
     )
     """)
 
-    # DEFAULT USERS
-    cursor.execute("INSERT OR IGNORE INTO users (username,password) VALUES ('deepak','deepak123')")
-    cursor.execute("INSERT OR IGNORE INTO users (username,password) VALUES ('raushan','raushan123')")
-    cursor.execute("INSERT OR IGNORE INTO users (username,password) VALUES ('naman','naman123')")
+    # 🔥 IMPORTANT FIX (always fresh users)
+    cursor.execute("DELETE FROM users")
+
+    cursor.execute("INSERT INTO users (username,password) VALUES ('deepak','deepak123')")
+    cursor.execute("INSERT INTO users (username,password) VALUES ('raushan','raushan123')")
+    cursor.execute("INSERT INTO users (username,password) VALUES ('naman','naman123')")
 
     db.commit()
     db.close()

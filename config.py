@@ -1,4 +1,3 @@
-DB_HOST = "localhost"
-DB_USER = "root"
-DB_PASSWORD = "root@123"
-DB_NAME = "inventory_db"
+SECRET_KEY = "secret123"
+DATABASE = "database.db"
+UPLOAD_FOLDER = "static/uploads"

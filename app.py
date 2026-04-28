@@ -1,25 +1,57 @@
 from flask import Flask, render_template, request, redirect, session, send_from_directory
-import mysql.connector
+import sqlite3
 import os
 
 app = Flask(__name__)
 app.secret_key = "secret123"
 
-# DB connection
+# DB connection (✅ SQLite)
 def get_db():
-    return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="root@123",
-        database="inventory_db",
-        autocommit=True
-    )
+    conn = sqlite3.connect("database.db")
+    conn.row_factory = sqlite3.Row
+    return conn
 
 # UPLOAD FOLDER
 UPLOAD_FOLDER = os.path.join("static", "uploads")
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
+
+# 🔥 AUTO CREATE DATABASE
+def init_db():
+    db = get_db()
+    cursor = db.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE,
+        password TEXT
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        category TEXT,
+        weight TEXT,
+        purchase_price REAL,
+        selling_price REAL,
+        quality TEXT,
+        image TEXT
+    )
+    """)
+
+    # default users
+    cursor.execute("INSERT OR IGNORE INTO users (username,password) VALUES ('deepak','deepak123')")
+    cursor.execute("INSERT OR IGNORE INTO users (username,password) VALUES ('raushan','raushan123')")
+    cursor.execute("INSERT OR IGNORE INTO users (username,password) VALUES ('naman','naman123')")
+
+    db.commit()
+    db.close()
+
+init_db()
 
 # LOGIN
 @app.route('/', methods=['GET','POST'])
@@ -32,7 +64,7 @@ def login():
         db = get_db()
         cursor = db.cursor()
 
-        cursor.execute("SELECT * FROM users WHERE username=%s AND password=%s",(username,password))
+        cursor.execute("SELECT * FROM users WHERE username=? AND password=?",(username,password))
         user = cursor.fetchone()
 
         cursor.close()
@@ -53,14 +85,14 @@ def dashboard():
         return redirect('/')
     return render_template('dashboard.html')
 
-# ITEMS (🔥 PAGINATION + SEARCH)
+# ITEMS (PAGINATION + SEARCH)
 @app.route('/items')
 def items():
     if 'user' not in session:
         return redirect('/')
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     search = request.args.get('search', '')
     category = request.args.get('category', '')
@@ -73,30 +105,29 @@ def items():
     params = []
 
     if search:
-        query += " AND (name LIKE %s OR category LIKE %s)"
+        query += " AND (name LIKE ? OR category LIKE ?)"
         params.extend([f"%{search}%", f"%{search}%"])
 
     if category:
-        query += " AND category=%s"
+        query += " AND category=?"
         params.append(category)
 
-    # 🔢 COUNT QUERY
-    count_query = "SELECT COUNT(*) as total FROM items WHERE 1=1"
+    # COUNT
+    count_query = "SELECT COUNT(*) FROM items WHERE 1=1"
     count_params = []
 
     if search:
-        count_query += " AND (name LIKE %s OR category LIKE %s)"
+        count_query += " AND (name LIKE ? OR category LIKE ?)"
         count_params.extend([f"%{search}%", f"%{search}%"])
 
     if category:
-        count_query += " AND category=%s"
+        count_query += " AND category=?"
         count_params.append(category)
 
     cursor.execute(count_query, count_params)
-    total = cursor.fetchone()['total']
+    total = cursor.fetchone()[0]
 
-    # 🔥 APPLY LIMIT
-    query += " LIMIT %s OFFSET %s"
+    query += " LIMIT ? OFFSET ?"
     params.extend([limit, offset])
 
     cursor.execute(query, params)
@@ -139,9 +170,10 @@ def add():
 
         cursor.execute("""
             INSERT INTO items(name,category,weight,purchase_price,selling_price,quality,image)
-            VALUES(%s,%s,%s,%s,%s,%s,%s)
+            VALUES(?,?,?,?,?,?,?)
         """,(name,category,weight,purchase,selling,quality,filename))
 
+        db.commit()
         cursor.close()
         db.close()
 
@@ -156,7 +188,7 @@ def edit(id):
         return redirect('/')
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     if request.method == 'POST':
         name = request.form['name']
@@ -172,23 +204,24 @@ def edit(id):
         if filename:
             file.save(os.path.join(UPLOAD_FOLDER, filename))
             cursor.execute("""
-                UPDATE items SET name=%s, category=%s, weight=%s,
-                purchase_price=%s, selling_price=%s,
-                quality=%s, image=%s WHERE id=%s
+                UPDATE items SET name=?, category=?, weight=?,
+                purchase_price=?, selling_price=?,
+                quality=?, image=? WHERE id=?
             """,(name,category,weight,purchase,selling,quality,filename,id))
         else:
             cursor.execute("""
-                UPDATE items SET name=%s, category=%s, weight=%s,
-                purchase_price=%s, selling_price=%s,
-                quality=%s WHERE id=%s
+                UPDATE items SET name=?, category=?, weight=?,
+                purchase_price=?, selling_price=?,
+                quality=? WHERE id=?
             """,(name,category,weight,purchase,selling,quality,id))
 
+        db.commit()
         cursor.close()
         db.close()
 
         return redirect('/items')
 
-    cursor.execute("SELECT * FROM items WHERE id=%s",(id,))
+    cursor.execute("SELECT * FROM items WHERE id=?",(id,))
     item = cursor.fetchone()
 
     cursor.close()
@@ -205,7 +238,8 @@ def delete(id):
     db = get_db()
     cursor = db.cursor()
 
-    cursor.execute("DELETE FROM items WHERE id=%s",(id,))
+    cursor.execute("DELETE FROM items WHERE id=?",(id,))
+    db.commit()
 
     cursor.close()
     db.close()
@@ -223,5 +257,6 @@ def logout():
     session.pop('user', None)
     return redirect('/')
 
+# DEPLOY FIX
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=10000)

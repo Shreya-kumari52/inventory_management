@@ -5,17 +5,19 @@ import os
 app = Flask(__name__)
 app.secret_key = "secret123"
 
-# DB connection (PostgreSQL - Supabase)
+# ✅ DATABASE CONNECTION (Supabase FIXED)
 def get_db():
-    return psycopg.connect(os.environ.get("DATABASE_URL"))
+    return psycopg.connect(
+        os.environ.get("DATABASE_URL"),
+        sslmode="require"
+    )
 
 # UPLOAD FOLDER
 UPLOAD_FOLDER = os.path.join("static", "uploads")
-
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# 🔥 AUTO CREATE DATABASE
+# ✅ AUTO CREATE DATABASE
 def init_db():
     db = get_db()
     cursor = db.cursor()
@@ -29,7 +31,7 @@ def init_db():
     )
     """)
 
-    # ITEMS TABLE (❌ selling_price removed)
+    # ITEMS TABLE (selling_price removed)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS items (
         id SERIAL PRIMARY KEY,
@@ -42,12 +44,13 @@ def init_db():
     )
     """)
 
-    # default users (duplicate avoid)
+    # DEFAULT USERS
     cursor.execute("INSERT INTO users (username,password) VALUES ('deepak','deepak123') ON CONFLICT DO NOTHING")
     cursor.execute("INSERT INTO users (username,password) VALUES ('raushan','raushan123') ON CONFLICT DO NOTHING")
     cursor.execute("INSERT INTO users (username,password) VALUES ('naman','naman123') ON CONFLICT DO NOTHING")
 
     db.commit()
+    cursor.close()
     db.close()
 
 # CALL INIT
@@ -85,7 +88,7 @@ def dashboard():
         return redirect('/')
     return render_template('dashboard.html')
 
-# ITEMS
+# ITEMS (SEARCH + PAGINATION FIXED)
 @app.route('/items')
 def items():
     if 'user' not in session:
@@ -112,8 +115,17 @@ def items():
         query += " AND category=%s"
         params.append(category)
 
+    # ✅ COUNT QUERY FIXED
     count_query = "SELECT COUNT(*) FROM items WHERE 1=1"
-    count_params = params.copy()
+    count_params = []
+
+    if search:
+        count_query += " AND (name ILIKE %s OR category ILIKE %s)"
+        count_params.extend([f"%{search}%", f"%{search}%"])
+
+    if category:
+        count_query += " AND category=%s"
+        count_params.append(category)
 
     cursor.execute(count_query, count_params)
     total = cursor.fetchone()[0]
@@ -244,6 +256,6 @@ def logout():
     session.pop('user', None)
     return redirect('/')
 
-# DEPLOY FIX
+# RUN
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)

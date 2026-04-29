@@ -1,15 +1,13 @@
 from flask import Flask, render_template, request, redirect, session, send_from_directory
-import sqlite3
+import psycopg2
 import os
 
 app = Flask(__name__)
 app.secret_key = "secret123"
 
-# DB connection (SQLite)
+# DB connection (PostgreSQL - Supabase)
 def get_db():
-    conn = sqlite3.connect("/tmp/database.db")   # 🔥 Render fix
-    conn.row_factory = sqlite3.Row
-    return conn
+    return psycopg2.connect(os.environ.get("DATABASE_URL"))
 
 # UPLOAD FOLDER
 UPLOAD_FOLDER = os.path.join("static", "uploads")
@@ -25,32 +23,29 @@ def init_db():
     # USERS TABLE
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         username TEXT UNIQUE,
         password TEXT
     )
     """)
 
-    # ITEMS TABLE
+    # ITEMS TABLE (❌ selling_price removed)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         name TEXT,
         category TEXT,
         weight TEXT,
         purchase_price REAL,
-        selling_price REAL,
         quality TEXT,
         image TEXT
     )
     """)
 
-    # 🔥 IMPORTANT FIX (always fresh users)
-    cursor.execute("DELETE FROM users")
-
-    cursor.execute("INSERT INTO users (username,password) VALUES ('deepak','deepak123')")
-    cursor.execute("INSERT INTO users (username,password) VALUES ('raushan','raushan123')")
-    cursor.execute("INSERT INTO users (username,password) VALUES ('naman','naman123')")
+    # default users (duplicate avoid)
+    cursor.execute("INSERT INTO users (username,password) VALUES ('deepak','deepak123') ON CONFLICT DO NOTHING")
+    cursor.execute("INSERT INTO users (username,password) VALUES ('raushan','raushan123') ON CONFLICT DO NOTHING")
+    cursor.execute("INSERT INTO users (username,password) VALUES ('naman','naman123') ON CONFLICT DO NOTHING")
 
     db.commit()
     db.close()
@@ -69,7 +64,7 @@ def login():
         db = get_db()
         cursor = db.cursor()
 
-        cursor.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
+        cursor.execute("SELECT * FROM users WHERE username=%s AND password=%s", (username, password))
         user = cursor.fetchone()
 
         cursor.close()
@@ -90,7 +85,7 @@ def dashboard():
         return redirect('/')
     return render_template('dashboard.html')
 
-# ITEMS (PAGINATION + SEARCH)
+# ITEMS
 @app.route('/items')
 def items():
     if 'user' not in session:
@@ -110,30 +105,20 @@ def items():
     params = []
 
     if search:
-        query += " AND (name LIKE ? OR category LIKE ?)"
+        query += " AND (name ILIKE %s OR category ILIKE %s)"
         params.extend([f"%{search}%", f"%{search}%"])
 
     if category:
-        query += " AND category=?"
+        query += " AND category=%s"
         params.append(category)
 
-    # COUNT QUERY
     count_query = "SELECT COUNT(*) FROM items WHERE 1=1"
-    count_params = []
-
-    if search:
-        count_query += " AND (name LIKE ? OR category LIKE ?)"
-        count_params.extend([f"%{search}%", f"%{search}%"])
-
-    if category:
-        count_query += " AND category=?"
-        count_params.append(category)
+    count_params = params.copy()
 
     cursor.execute(count_query, count_params)
     total = cursor.fetchone()[0]
 
-    # LIMIT
-    query += " LIMIT ? OFFSET ?"
+    query += " LIMIT %s OFFSET %s"
     params.extend([limit, offset])
 
     cursor.execute(query, params)
@@ -162,7 +147,6 @@ def add():
         category = request.form['category']
         weight = request.form['weight']
         purchase = request.form['purchase']
-        selling = request.form['selling']
         quality = request.form['quality']
 
         file = request.files['image']
@@ -175,9 +159,9 @@ def add():
         cursor = db.cursor()
 
         cursor.execute("""
-            INSERT INTO items(name,category,weight,purchase_price,selling_price,quality,image)
-            VALUES(?,?,?,?,?,?,?)
-        """, (name, category, weight, purchase, selling, quality, filename))
+            INSERT INTO items(name,category,weight,purchase_price,quality,image)
+            VALUES(%s,%s,%s,%s,%s,%s)
+        """, (name, category, weight, purchase, quality, filename))
 
         db.commit()
         cursor.close()
@@ -201,7 +185,6 @@ def edit(id):
         category = request.form['category']
         weight = request.form['weight']
         purchase = request.form['purchase']
-        selling = request.form['selling']
         quality = request.form['quality']
 
         file = request.files['image']
@@ -210,16 +193,14 @@ def edit(id):
         if filename:
             file.save(os.path.join(UPLOAD_FOLDER, filename))
             cursor.execute("""
-                UPDATE items SET name=?, category=?, weight=?,
-                purchase_price=?, selling_price=?,
-                quality=?, image=? WHERE id=?
-            """, (name, category, weight, purchase, selling, quality, filename, id))
+                UPDATE items SET name=%s, category=%s, weight=%s,
+                purchase_price=%s, quality=%s, image=%s WHERE id=%s
+            """, (name, category, weight, purchase, quality, filename, id))
         else:
             cursor.execute("""
-                UPDATE items SET name=?, category=?, weight=?,
-                purchase_price=?, selling_price=?,
-                quality=? WHERE id=?
-            """, (name, category, weight, purchase, selling, quality, id))
+                UPDATE items SET name=%s, category=%s, weight=%s,
+                purchase_price=%s, quality=%s WHERE id=%s
+            """, (name, category, weight, purchase, quality, id))
 
         db.commit()
         cursor.close()
@@ -227,7 +208,7 @@ def edit(id):
 
         return redirect('/items')
 
-    cursor.execute("SELECT * FROM items WHERE id=?", (id,))
+    cursor.execute("SELECT * FROM items WHERE id=%s", (id,))
     item = cursor.fetchone()
 
     cursor.close()
@@ -244,7 +225,7 @@ def delete(id):
     db = get_db()
     cursor = db.cursor()
 
-    cursor.execute("DELETE FROM items WHERE id=?", (id,))
+    cursor.execute("DELETE FROM items WHERE id=%s", (id,))
     db.commit()
 
     cursor.close()

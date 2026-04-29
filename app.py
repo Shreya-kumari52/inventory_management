@@ -5,56 +5,63 @@ import os
 app = Flask(__name__)
 app.secret_key = "secret123"
 
-# ✅ DATABASE CONNECTION (Supabase FIXED)
+# ✅ DATABASE CONNECTION
 def get_db():
     return psycopg.connect(
         os.environ.get("DATABASE_URL"),
         sslmode="require"
     )
 
-# UPLOAD FOLDER
+# ✅ UPLOAD FOLDER
 UPLOAD_FOLDER = os.path.join("static", "uploads")
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# ✅ AUTO CREATE DATABASE
+# ✅ INIT DB (SAFE)
 def init_db():
-    db = get_db()
-    cursor = db.cursor()
+    try:
+        db = get_db()
+        cursor = db.cursor()
 
-    # USERS TABLE
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        username TEXT UNIQUE,
-        password TEXT
-    )
-    """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username TEXT UNIQUE,
+            password TEXT
+        )
+        """)
 
-    # ITEMS TABLE (selling_price removed)
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS items (
-        id SERIAL PRIMARY KEY,
-        name TEXT,
-        category TEXT,
-        weight TEXT,
-        purchase_price REAL,
-        quality TEXT,
-        image TEXT
-    )
-    """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS items (
+            id SERIAL PRIMARY KEY,
+            name TEXT,
+            category TEXT,
+            weight TEXT,
+            purchase_price REAL,
+            quality TEXT,
+            image TEXT
+        )
+        """)
 
-    # DEFAULT USERS
-    cursor.execute("INSERT INTO users (username,password) VALUES ('deepak','deepak123') ON CONFLICT DO NOTHING")
-    cursor.execute("INSERT INTO users (username,password) VALUES ('raushan','raushan123') ON CONFLICT DO NOTHING")
-    cursor.execute("INSERT INTO users (username,password) VALUES ('naman','naman123') ON CONFLICT DO NOTHING")
+        cursor.execute("INSERT INTO users (username,password) VALUES ('deepak','deepak123') ON CONFLICT DO NOTHING")
+        cursor.execute("INSERT INTO users (username,password) VALUES ('raushan','raushan123') ON CONFLICT DO NOTHING")
+        cursor.execute("INSERT INTO users (username,password) VALUES ('naman','naman123') ON CONFLICT DO NOTHING")
 
-    db.commit()
-    cursor.close()
-    db.close()
+        db.commit()
+        cursor.close()
+        db.close()
 
-# CALL INIT
-init_db()
+    except Exception as e:
+        print("DB INIT ERROR:", e)
+
+# ✅ FIX: INIT ONLY ON FIRST REQUEST
+@app.before_request
+def setup():
+    if not hasattr(app, "db_initialized"):
+        init_db()
+        app.db_initialized = True
+
+
+# ================= ROUTES ================= #
 
 # LOGIN
 @app.route('/', methods=['GET','POST'])
@@ -81,6 +88,7 @@ def login():
 
     return render_template('login.html', error=error)
 
+
 # DASHBOARD
 @app.route('/dashboard')
 def dashboard():
@@ -88,7 +96,8 @@ def dashboard():
         return redirect('/')
     return render_template('dashboard.html')
 
-# ITEMS (SEARCH + PAGINATION FIXED)
+
+# ITEMS
 @app.route('/items')
 def items():
     if 'user' not in session:
@@ -115,7 +124,7 @@ def items():
         query += " AND category=%s"
         params.append(category)
 
-    # ✅ COUNT QUERY FIXED
+    # COUNT QUERY
     count_query = "SELECT COUNT(*) FROM items WHERE 1=1"
     count_params = []
 
@@ -147,6 +156,7 @@ def items():
                            total_pages=total_pages,
                            search=search,
                            category=category)
+
 
 # ADD ITEM
 @app.route('/add', methods=['GET','POST'])
@@ -182,6 +192,7 @@ def add():
         return redirect('/items')
 
     return render_template('add_edit.html', item=None)
+
 
 # EDIT ITEM
 @app.route('/edit/<int:id>', methods=['GET','POST'])
@@ -228,6 +239,7 @@ def edit(id):
 
     return render_template('add_edit.html', item=item)
 
+
 # DELETE
 @app.route('/delete/<int:id>')
 def delete(id):
@@ -245,10 +257,12 @@ def delete(id):
 
     return redirect('/items')
 
+
 # IMAGE SHOW
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
+
 
 # LOGOUT
 @app.route('/logout')
@@ -256,6 +270,7 @@ def logout():
     session.pop('user', None)
     return redirect('/')
 
-# RUN
+
+# RUN (LOCAL ONLY)
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)

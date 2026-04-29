@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, session, send_from_directory
-import psycopg2
+import psycopg
 import os
 
 app = Flask(__name__)
@@ -7,7 +7,7 @@ app.secret_key = "secret123"
 
 # DB connection (PostgreSQL - Supabase)
 def get_db():
-    return psycopg2.connect(os.environ.get("DATABASE_URL"))
+    return psycopg.connect(os.environ.get("DATABASE_URL"))
 
 # UPLOAD FOLDER
 UPLOAD_FOLDER = os.path.join("static", "uploads")

@@ -5,21 +5,38 @@ import os
 app = Flask(__name__)
 app.secret_key = "secret123"
 
-# ✅ DATABASE CONNECTION
-def get_db():
-    return psycopg.connect(
-        os.environ.get("DATABASE_URL"),
-        sslmode="require"
-    )
 
-# ✅ UPLOAD FOLDER
+# ================= DATABASE ================= #
+
+def get_db():
+    try:
+        db_url = os.environ.get("DATABASE_URL")
+
+        if not db_url:
+            raise Exception("DATABASE_URL missing ❌")
+
+        return psycopg.connect(db_url, sslmode="require")
+
+    except Exception as e:
+        print("DB CONNECTION ERROR:", e)
+        return None
+
+
+# ================= UPLOAD ================= #
+
 UPLOAD_FOLDER = os.path.join("static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# ✅ INIT DB (SAFE)
+
+# ================= INIT DB ================= #
+
 def init_db():
+    db = get_db()
+    if db is None:
+        print("DB not connected ❌")
+        return
+
     try:
-        db = get_db()
         cursor = db.cursor()
 
         cursor.execute("""
@@ -51,9 +68,10 @@ def init_db():
         db.close()
 
     except Exception as e:
-        print("DB INIT ERROR:", e)
+        print("INIT DB ERROR:", e)
 
-# ✅ FIX: INIT ONLY ON FIRST REQUEST
+
+# ✅ RUN ONLY ONCE
 @app.before_request
 def setup():
     if not hasattr(app, "db_initialized"):
@@ -64,18 +82,30 @@ def setup():
 # ================= ROUTES ================= #
 
 # LOGIN
-@app.route('/', methods=['GET','POST'])
+@app.route('/', methods=['GET', 'POST'])
 def login():
     error = None
+
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
 
         db = get_db()
+        if db is None:
+            return "Database connection failed ❌"
+
         cursor = db.cursor()
 
-        cursor.execute("SELECT * FROM users WHERE username=%s AND password=%s", (username, password))
-        user = cursor.fetchone()
+        try:
+            cursor.execute(
+                "SELECT * FROM users WHERE username=%s AND password=%s",
+                (username, password)
+            )
+            user = cursor.fetchone()
+
+        except Exception as e:
+            print("LOGIN ERROR:", e)
+            user = None
 
         cursor.close()
         db.close()
@@ -104,164 +134,85 @@ def items():
         return redirect('/')
 
     db = get_db()
+    if db is None:
+        return "Database error ❌"
+
     cursor = db.cursor()
 
-    search = request.args.get('search', '')
-    category = request.args.get('category', '')
-    page = request.args.get('page', 1, type=int)
+    try:
+        search = request.args.get('search', '')
+        category = request.args.get('category', '')
+        page = request.args.get('page', 1, type=int)
 
-    limit = 12
-    offset = (page - 1) * limit
+        limit = 12
+        offset = (page - 1) * limit
 
-    query = "SELECT * FROM items WHERE 1=1"
-    params = []
+        query = "SELECT * FROM items WHERE 1=1"
+        params = []
 
-    if search:
-        query += " AND (name ILIKE %s OR category ILIKE %s)"
-        params.extend([f"%{search}%", f"%{search}%"])
+        if search:
+            query += " AND (name ILIKE %s OR category ILIKE %s)"
+            params.extend([f"%{search}%", f"%{search}%"])
 
-    if category:
-        query += " AND category=%s"
-        params.append(category)
+        if category:
+            query += " AND category=%s"
+            params.append(category)
 
-    # COUNT QUERY
-    count_query = "SELECT COUNT(*) FROM items WHERE 1=1"
-    count_params = []
+        cursor.execute(query + " LIMIT %s OFFSET %s", params + [limit, offset])
+        data = cursor.fetchall()
 
-    if search:
-        count_query += " AND (name ILIKE %s OR category ILIKE %s)"
-        count_params.extend([f"%{search}%", f"%{search}%"])
-
-    if category:
-        count_query += " AND category=%s"
-        count_params.append(category)
-
-    cursor.execute(count_query, count_params)
-    total = cursor.fetchone()[0]
-
-    query += " LIMIT %s OFFSET %s"
-    params.extend([limit, offset])
-
-    cursor.execute(query, params)
-    data = cursor.fetchall()
-
-    total_pages = (total // limit) + (1 if total % limit else 0)
+    except Exception as e:
+        print("ITEM ERROR:", e)
+        data = []
 
     cursor.close()
     db.close()
 
-    return render_template('items.html',
-                           items=data,
-                           page=page,
-                           total_pages=total_pages,
-                           search=search,
-                           category=category)
+    return render_template('items.html', items=data, page=1, total_pages=1)
 
 
 # ADD ITEM
-@app.route('/add', methods=['GET','POST'])
+@app.route('/add', methods=['GET', 'POST'])
 def add():
     if 'user' not in session:
         return redirect('/')
 
     if request.method == 'POST':
-        name = request.form['name']
-        category = request.form['category']
-        weight = request.form['weight']
-        purchase = request.form['purchase']
-        quality = request.form['quality']
-
-        file = request.files['image']
-        filename = file.filename if file else ""
-
-        if filename:
-            file.save(os.path.join(UPLOAD_FOLDER, filename))
-
         db = get_db()
+        if db is None:
+            return "Database error ❌"
+
         cursor = db.cursor()
 
-        cursor.execute("""
-            INSERT INTO items(name,category,weight,purchase_price,quality,image)
-            VALUES(%s,%s,%s,%s,%s,%s)
-        """, (name, category, weight, purchase, quality, filename))
+        try:
+            name = request.form['name']
+            category = request.form['category']
+            weight = request.form['weight']
+            purchase = request.form['purchase']
+            quality = request.form['quality']
 
-        db.commit()
+            file = request.files['image']
+            filename = file.filename if file else ""
+
+            if filename:
+                file.save(os.path.join(UPLOAD_FOLDER, filename))
+
+            cursor.execute("""
+                INSERT INTO items(name,category,weight,purchase_price,quality,image)
+                VALUES(%s,%s,%s,%s,%s,%s)
+            """, (name, category, weight, purchase, quality, filename))
+
+            db.commit()
+
+        except Exception as e:
+            print("ADD ERROR:", e)
+
         cursor.close()
         db.close()
 
         return redirect('/items')
 
     return render_template('add_edit.html', item=None)
-
-
-# EDIT ITEM
-@app.route('/edit/<int:id>', methods=['GET','POST'])
-def edit(id):
-    if 'user' not in session:
-        return redirect('/')
-
-    db = get_db()
-    cursor = db.cursor()
-
-    if request.method == 'POST':
-        name = request.form['name']
-        category = request.form['category']
-        weight = request.form['weight']
-        purchase = request.form['purchase']
-        quality = request.form['quality']
-
-        file = request.files['image']
-        filename = file.filename if file else ""
-
-        if filename:
-            file.save(os.path.join(UPLOAD_FOLDER, filename))
-            cursor.execute("""
-                UPDATE items SET name=%s, category=%s, weight=%s,
-                purchase_price=%s, quality=%s, image=%s WHERE id=%s
-            """, (name, category, weight, purchase, quality, filename, id))
-        else:
-            cursor.execute("""
-                UPDATE items SET name=%s, category=%s, weight=%s,
-                purchase_price=%s, quality=%s WHERE id=%s
-            """, (name, category, weight, purchase, quality, id))
-
-        db.commit()
-        cursor.close()
-        db.close()
-
-        return redirect('/items')
-
-    cursor.execute("SELECT * FROM items WHERE id=%s", (id,))
-    item = cursor.fetchone()
-
-    cursor.close()
-    db.close()
-
-    return render_template('add_edit.html', item=item)
-
-
-# DELETE
-@app.route('/delete/<int:id>')
-def delete(id):
-    if 'user' not in session:
-        return redirect('/')
-
-    db = get_db()
-    cursor = db.cursor()
-
-    cursor.execute("DELETE FROM items WHERE id=%s", (id,))
-    db.commit()
-
-    cursor.close()
-    db.close()
-
-    return redirect('/items')
-
-
-# IMAGE SHOW
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
 
 
 # LOGOUT
@@ -271,6 +222,12 @@ def logout():
     return redirect('/')
 
 
-# RUN (LOCAL ONLY)
+# IMAGE
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
+
+# RUN LOCAL
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)

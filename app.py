@@ -21,7 +21,6 @@ def get_db():
         # 🔥 IMPORTANT FIX (pooler compatible)
         return psycopg.connect(
             db_url,
-            sslmode="require",
             connect_timeout=10
         )
 

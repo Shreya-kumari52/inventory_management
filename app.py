@@ -15,7 +15,11 @@ def get_db():
         if not db_url:
             raise Exception("DATABASE_URL missing ❌")
 
-        return psycopg.connect(db_url, sslmode="require")
+        return psycopg.connect(
+            db_url,
+            sslmode="require",
+            connect_timeout=10
+        )
 
     except Exception as e:
         print("DB CONNECTION ERROR:", e)
@@ -142,7 +146,6 @@ def items():
     try:
         cursor.execute("SELECT * FROM items ORDER BY id DESC")
         data = cursor.fetchall()
-
     except Exception as e:
         print("ITEM ERROR:", e)
         data = []
@@ -171,16 +174,21 @@ def add():
 
             filename = ""
 
-            # ❌ FILE IGNORE (for now to avoid crash)
             file = request.files.get('image')
             if file and file.filename != "":
                 try:
                     filename = file.filename
                     file.save(os.path.join(UPLOAD_FOLDER, filename))
-                except:
+                except Exception as e:
+                    print("FILE SAVE ERROR:", e)
                     filename = ""
 
             db = get_db()
+
+            # ✅ IMPORTANT FIX
+            if db is None:
+                return "Database connection failed ❌"
+
             cursor = db.cursor()
 
             cursor.execute("""
@@ -196,7 +204,7 @@ def add():
 
         except Exception as e:
             print("ADD ERROR:", e)
-            return str(e)
+            return f"ERROR: {e}"
 
     return render_template('add_edit.html', item=None)
 

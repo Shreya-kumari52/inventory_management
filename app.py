@@ -187,7 +187,7 @@ def add():
             # SAFE purchase
             purchase_value = request.form.get('purchase')
             try:
-                purchase = float(purchase_value) if purchase_value else 0
+                purchase = float(purchase_value)
             except:
                 purchase = 0
 
@@ -215,7 +215,7 @@ def add():
 
         except Exception as e:
             print("ADD ERROR:", e)
-            return "Error: " + str(e)
+            return str(e)
 
     return render_template('add_edit.html', item=None)
 

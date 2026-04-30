@@ -172,30 +172,35 @@ def items():
 
 
 # ADD ITEM
-@app.route('/add', methods=['GET', 'POST'])
+@app.route('/add', methods=['GET','POST'])
 def add():
     if 'user' not in session:
         return redirect('/')
 
     if request.method == 'POST':
-        db = get_db()
-        if db is None:
-            return "Database error ❌"
-
-        cursor = db.cursor()
-
         try:
-            name = request.form['name']
-            category = request.form['category']
-            weight = request.form['weight']
-            purchase = request.form['purchase']
-            quality = request.form['quality']
+            name = request.form.get('name')
+            category = request.form.get('category')
+            weight = request.form.get('weight')
+            quality = request.form.get('quality')
 
-            file = request.files['image']
-            filename = file.filename if file else ""
+            # SAFE purchase
+            purchase_value = request.form.get('purchase')
+            try:
+                purchase = float(purchase_value) if purchase_value else 0
+            except:
+                purchase = 0
 
-            if filename:
+            # SAFE image
+            file = request.files.get('image')
+            filename = ""
+
+            if file and file.filename != "":
+                filename = file.filename
                 file.save(os.path.join(UPLOAD_FOLDER, filename))
+
+            db = get_db()
+            cursor = db.cursor()
 
             cursor.execute("""
                 INSERT INTO items(name,category,weight,purchase_price,quality,image)
@@ -203,14 +208,14 @@ def add():
             """, (name, category, weight, purchase, quality, filename))
 
             db.commit()
+            cursor.close()
+            db.close()
+
+            return redirect('/items')
 
         except Exception as e:
             print("ADD ERROR:", e)
-
-        cursor.close()
-        db.close()
-
-        return redirect('/items')
+            return "Error: " + str(e)
 
     return render_template('add_edit.html', item=None)
 

@@ -140,25 +140,7 @@ def items():
     cursor = db.cursor()
 
     try:
-        search = request.args.get('search', '')
-        category = request.args.get('category', '')
-        page = request.args.get('page', 1, type=int)
-
-        limit = 12
-        offset = (page - 1) * limit
-
-        query = "SELECT * FROM items WHERE 1=1"
-        params = []
-
-        if search:
-            query += " AND (name ILIKE %s OR category ILIKE %s)"
-            params.extend([f"%{search}%", f"%{search}%"])
-
-        if category:
-            query += " AND category=%s"
-            params.append(category)
-
-        cursor.execute(query + " LIMIT %s OFFSET %s", params + [limit, offset])
+        cursor.execute("SELECT * FROM items ORDER BY id DESC")
         data = cursor.fetchall()
 
     except Exception as e:
@@ -179,9 +161,6 @@ def add():
 
     if request.method == 'POST':
         try:
-            print("FORM DATA:", request.form)
-            print("FILES:", request.files)
-
             name = request.form.get('name')
             category = request.form.get('category')
             weight = request.form.get('weight')
@@ -193,14 +172,20 @@ def add():
             file = request.files.get('image')
             filename = ""
 
-            if file:
-                print("FILE NAME:", file.filename)
-
+            # ✅ SAFE FILE UPLOAD (no crash)
             if file and file.filename != "":
-                filename = file.filename
-                file.save(os.path.join(UPLOAD_FOLDER, filename))
+                try:
+                    filename = file.filename
+                    filepath = os.path.join(UPLOAD_FOLDER, filename)
+                    file.save(filepath)
+                except Exception as e:
+                    print("FILE SAVE ERROR:", e)
+                    filename = ""
 
             db = get_db()
+            if db is None:
+                return "Database error ❌"
+
             cursor = db.cursor()
 
             cursor.execute("""

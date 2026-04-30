@@ -179,21 +179,22 @@ def add():
 
     if request.method == 'POST':
         try:
+            print("FORM DATA:", request.form)
+            print("FILES:", request.files)
+
             name = request.form.get('name')
             category = request.form.get('category')
             weight = request.form.get('weight')
             quality = request.form.get('quality')
 
-            # SAFE purchase
-            purchase_value = request.form.get('purchase')
-            try:
-                purchase = float(purchase_value)
-            except:
-                purchase = 0
+            purchase = request.form.get('purchase')
+            purchase = float(purchase) if purchase else 0
 
-            # SAFE image
             file = request.files.get('image')
             filename = ""
+
+            if file:
+                print("FILE NAME:", file.filename)
 
             if file and file.filename != "":
                 filename = file.filename
@@ -214,8 +215,8 @@ def add():
             return redirect('/items')
 
         except Exception as e:
-            print("ADD ERROR:", e)
-            return str(e)
+            print("❌ ADD ERROR:", e)
+            return f"ERROR: {e}"
 
     return render_template('add_edit.html', item=None)
 

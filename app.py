@@ -5,7 +5,7 @@ import os
 app = Flask(__name__)
 app.secret_key = "secret123"
 
-# ✅ DEBUG ENABLE (IMPORTANT)
+# ✅ DEBUG
 app.config['PROPAGATE_EXCEPTIONS'] = True
 
 
@@ -18,15 +18,15 @@ def get_db():
         if not db_url:
             raise Exception("DATABASE_URL missing ❌")
 
+        # 🔥 IMPORTANT FIX (pooler compatible)
         return psycopg.connect(
             db_url,
             sslmode="require",
-            autocommit=True,   # ✅ FIX
             connect_timeout=10
         )
 
     except Exception as e:
-        print("DB CONNECTION ERROR:", e)
+        print("❌ DB CONNECTION ERROR:", e)
         return None
 
 
@@ -70,6 +70,8 @@ def init_db():
         cursor.execute("INSERT INTO users (username,password) VALUES ('deepak','deepak123') ON CONFLICT DO NOTHING")
         cursor.execute("INSERT INTO users (username,password) VALUES ('raushan','raushan123') ON CONFLICT DO NOTHING")
         cursor.execute("INSERT INTO users (username,password) VALUES ('naman','naman123') ON CONFLICT DO NOTHING")
+
+        db.commit()
 
         cursor.close()
         db.close()
@@ -172,8 +174,11 @@ def add():
             weight = request.form.get('weight')
             quality = request.form.get('quality')
 
-            purchase = request.form.get('purchase')
-            purchase = float(purchase) if purchase else 0
+            # ✅ SAFE FLOAT
+            try:
+                purchase = float(request.form.get('purchase', 0))
+            except:
+                purchase = 0
 
             filename = ""
 
@@ -183,7 +188,7 @@ def add():
                     filename = file.filename
                     file.save(os.path.join(UPLOAD_FOLDER, filename))
                 except Exception as e:
-                    print("FILE SAVE ERROR:", e)
+                    print("FILE ERROR:", e)
                     filename = ""
 
             db = get_db()
@@ -192,25 +197,22 @@ def add():
 
             cursor = db.cursor()
 
-            try:
-                cursor.execute("""
-                    INSERT INTO items(name,category,weight,purchase_price,quality,image)
-                    VALUES(%s,%s,%s,%s,%s,%s)
-                """, (name, category, weight, purchase, quality, filename))
+            cursor.execute("""
+                INSERT INTO items(name,category,weight,purchase_price,quality,image)
+                VALUES(%s,%s,%s,%s,%s,%s)
+            """, (name, category, weight, purchase, quality, filename))
 
-            except Exception as e:
-                print("❌ INSERT ERROR:", e)
-                return f"INSERT ERROR: {e}"
+            db.commit()   # 🔥 MOST IMPORTANT
 
-            finally:
-                cursor.close()
-                db.close()
+            cursor.close()
+            db.close()
 
             return redirect('/items')
 
         except Exception as e:
+            import traceback
             print("ADD ERROR:", e)
-            return f"ERROR: {e}"
+            return f"<pre>{traceback.format_exc()}</pre>"
 
     return render_template('add_edit.html', item=None)
 
@@ -226,6 +228,7 @@ def delete(id):
 
     try:
         cursor.execute("DELETE FROM items WHERE id=%s", (id,))
+        db.commit()
     except Exception as e:
         print("DELETE ERROR:", e)
 

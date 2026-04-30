@@ -5,6 +5,9 @@ import os
 app = Flask(__name__)
 app.secret_key = "secret123"
 
+# ✅ DEBUG ENABLE (IMPORTANT)
+app.config['PROPAGATE_EXCEPTIONS'] = True
+
 
 # ================= DATABASE ================= #
 
@@ -18,6 +21,7 @@ def get_db():
         return psycopg.connect(
             db_url,
             sslmode="require",
+            autocommit=True,   # ✅ FIX
             connect_timeout=10
         )
 
@@ -67,7 +71,6 @@ def init_db():
         cursor.execute("INSERT INTO users (username,password) VALUES ('raushan','raushan123') ON CONFLICT DO NOTHING")
         cursor.execute("INSERT INTO users (username,password) VALUES ('naman','naman123') ON CONFLICT DO NOTHING")
 
-        db.commit()
         cursor.close()
         db.close()
 
@@ -184,21 +187,24 @@ def add():
                     filename = ""
 
             db = get_db()
-
-            # ✅ IMPORTANT FIX
             if db is None:
                 return "Database connection failed ❌"
 
             cursor = db.cursor()
 
-            cursor.execute("""
-                INSERT INTO items(name,category,weight,purchase_price,quality,image)
-                VALUES(%s,%s,%s,%s,%s,%s)
-            """, (name, category, weight, purchase, quality, filename))
+            try:
+                cursor.execute("""
+                    INSERT INTO items(name,category,weight,purchase_price,quality,image)
+                    VALUES(%s,%s,%s,%s,%s,%s)
+                """, (name, category, weight, purchase, quality, filename))
 
-            db.commit()
-            cursor.close()
-            db.close()
+            except Exception as e:
+                print("❌ INSERT ERROR:", e)
+                return f"INSERT ERROR: {e}"
+
+            finally:
+                cursor.close()
+                db.close()
 
             return redirect('/items')
 
@@ -207,6 +213,26 @@ def add():
             return f"ERROR: {e}"
 
     return render_template('add_edit.html', item=None)
+
+
+# DELETE
+@app.route('/delete/<int:id>')
+def delete(id):
+    if 'user' not in session:
+        return redirect('/')
+
+    db = get_db()
+    cursor = db.cursor()
+
+    try:
+        cursor.execute("DELETE FROM items WHERE id=%s", (id,))
+    except Exception as e:
+        print("DELETE ERROR:", e)
+
+    cursor.close()
+    db.close()
+
+    return redirect('/items')
 
 
 # LOGOUT

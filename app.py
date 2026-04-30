@@ -169,23 +169,18 @@ def add():
             purchase = request.form.get('purchase')
             purchase = float(purchase) if purchase else 0
 
-            file = request.files.get('image')
             filename = ""
 
-            # ✅ SAFE FILE UPLOAD (no crash)
+            # ❌ FILE IGNORE (for now to avoid crash)
+            file = request.files.get('image')
             if file and file.filename != "":
                 try:
                     filename = file.filename
-                    filepath = os.path.join(UPLOAD_FOLDER, filename)
-                    file.save(filepath)
-                except Exception as e:
-                    print("FILE SAVE ERROR:", e)
+                    file.save(os.path.join(UPLOAD_FOLDER, filename))
+                except:
                     filename = ""
 
             db = get_db()
-            if db is None:
-                return "Database error ❌"
-
             cursor = db.cursor()
 
             cursor.execute("""
@@ -200,8 +195,8 @@ def add():
             return redirect('/items')
 
         except Exception as e:
-            print("❌ ADD ERROR:", e)
-            return f"ERROR: {e}"
+            print("ADD ERROR:", e)
+            return str(e)
 
     return render_template('add_edit.html', item=None)
 

@@ -31,9 +31,6 @@
   <label>Cost Price</label>
   <input name="purchase" value="{{item.purchase_price if item}}" placeholder="Enter cost price" required>
 
-  <!-- 🔥 hidden selling price -->
-  <input type="hidden" name="selling" value="{{item.selling_price if item else 0}}">
-
   <label>Quality</label>
   <input name="quality" value="{{item.quality if item}}" placeholder="Enter quality" required>
 

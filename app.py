@@ -157,7 +157,14 @@ def items():
     cursor.close()
     db.close()
 
-    return render_template('items.html', items=data, page=1, total_pages=1)
+    return render_template(
+    'items.html',
+    items=data,
+    page=1,
+    total_pages=1,
+    search="",
+    category=""
+)
 
 
 # ADD ITEM

@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, session, send_from_directory
 import psycopg
 import os
+import traceback
 
 app = Flask(__name__)
 app.secret_key = "secret123"
@@ -13,16 +14,21 @@ app.config['PROPAGATE_EXCEPTIONS'] = True
 
 def get_db():
     try:
-        db_url = os.environ.get("DATABASE_URL")
+        db_url = os.getenv("DATABASE_URL")
+
+        print("DATABASE URL:", db_url)
 
         if not db_url:
             raise Exception("DATABASE_URL missing ❌")
 
-        # 🔥 IMPORTANT FIX (pooler compatible)
-        return psycopg.connect(
+        conn = psycopg.connect(
             db_url,
             connect_timeout=10
         )
+
+        print("✅ DATABASE CONNECTED")
+
+        return conn
 
     except Exception as e:
         print("❌ DB CONNECTION ERROR:", e)
@@ -39,13 +45,15 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def init_db():
     db = get_db()
+
     if db is None:
-        print("DB not connected ❌")
+        print("❌ DB not connected")
         return
 
     try:
         cursor = db.cursor()
 
+        # USERS TABLE
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -54,6 +62,7 @@ def init_db():
         )
         """)
 
+        # ITEMS TABLE
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS items (
             id SERIAL PRIMARY KEY,
@@ -66,17 +75,35 @@ def init_db():
         )
         """)
 
-        cursor.execute("INSERT INTO users (username,password) VALUES ('deepak','deepak123') ON CONFLICT DO NOTHING")
-        cursor.execute("INSERT INTO users (username,password) VALUES ('raushan','raushan123') ON CONFLICT DO NOTHING")
-        cursor.execute("INSERT INTO users (username,password) VALUES ('naman','naman123') ON CONFLICT DO NOTHING")
+        # DEFAULT USERS
+        cursor.execute("""
+        INSERT INTO users (username,password)
+        VALUES ('deepak','deepak123')
+        ON CONFLICT (username) DO NOTHING
+        """)
+
+        cursor.execute("""
+        INSERT INTO users (username,password)
+        VALUES ('raushan','raushan123')
+        ON CONFLICT (username) DO NOTHING
+        """)
+
+        cursor.execute("""
+        INSERT INTO users (username,password)
+        VALUES ('naman','naman123')
+        ON CONFLICT (username) DO NOTHING
+        """)
 
         db.commit()
+
+        print("✅ DATABASE INITIALIZED")
 
         cursor.close()
         db.close()
 
     except Exception as e:
-        print("INIT DB ERROR:", e)
+        print("❌ INIT DB ERROR:", e)
+        traceback.print_exc()
 
 
 # ✅ RUN ONLY ONCE
@@ -95,34 +122,39 @@ def login():
     error = None
 
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+
+        username = request.form.get('username')
+        password = request.form.get('password')
 
         db = get_db()
+
         if db is None:
             return "Database connection failed ❌"
 
-        cursor = db.cursor()
-
         try:
+            cursor = db.cursor()
+
             cursor.execute(
                 "SELECT * FROM users WHERE username=%s AND password=%s",
                 (username, password)
             )
+
             user = cursor.fetchone()
 
+            cursor.close()
+            db.close()
+
+            if user:
+                session['user'] = username
+                return redirect('/dashboard')
+
+            else:
+                error = "Invalid ID or Password"
+
         except Exception as e:
-            print("LOGIN ERROR:", e)
-            user = None
-
-        cursor.close()
-        db.close()
-
-        if user:
-            session['user'] = username
-            return redirect('/dashboard')
-        else:
-            error = "Invalid ID or Password"
+            print("❌ LOGIN ERROR:", e)
+            traceback.print_exc()
+            return f"<pre>{traceback.format_exc()}</pre>"
 
     return render_template('login.html', error=error)
 
@@ -130,57 +162,69 @@ def login():
 # DASHBOARD
 @app.route('/dashboard')
 def dashboard():
+
     if 'user' not in session:
         return redirect('/')
+
     return render_template('dashboard.html')
 
 
 # ITEMS
 @app.route('/items')
 def items():
+
     if 'user' not in session:
         return redirect('/')
 
     db = get_db()
-    if db is None:
-        return "Database error ❌"
 
-    cursor = db.cursor()
+    if db is None:
+        return "Database connection failed ❌"
 
     try:
-        cursor.execute("SELECT * FROM items ORDER BY id DESC")
+        cursor = db.cursor()
+
+        cursor.execute("""
+        SELECT * FROM items
+        ORDER BY id DESC
+        """)
+
         data = cursor.fetchall()
+
+        cursor.close()
+        db.close()
+
     except Exception as e:
-        print("ITEM ERROR:", e)
+        print("❌ ITEMS ERROR:", e)
+        traceback.print_exc()
         data = []
 
-    cursor.close()
-    db.close()
-
     return render_template(
-    'items.html',
-    items=data,
-    page=1,
-    total_pages=1,
-    search="",
-    category=""
-)
+        'items.html',
+        items=data,
+        page=1,
+        total_pages=1,
+        search="",
+        category=""
+    )
 
 
 # ADD ITEM
-@app.route('/add', methods=['GET','POST'])
+@app.route('/add', methods=['GET', 'POST'])
 def add():
+
     if 'user' not in session:
         return redirect('/')
 
     if request.method == 'POST':
+
         try:
             name = request.form.get('name')
             category = request.form.get('category')
             weight = request.form.get('weight')
             quality = request.form.get('quality')
 
-            # ✅ SAFE FLOAT
+            # SAFE FLOAT
             try:
                 purchase = float(request.form.get('purchase', 0))
             except:
@@ -188,27 +232,47 @@ def add():
 
             filename = ""
 
+            # IMAGE
             file = request.files.get('image')
+
             if file and file.filename != "":
+
                 try:
                     filename = file.filename
-                    file.save(os.path.join(UPLOAD_FOLDER, filename))
+
+                    save_path = os.path.join(UPLOAD_FOLDER, filename)
+
+                    file.save(save_path)
+
+                    print("✅ IMAGE SAVED:", save_path)
+
                 except Exception as e:
-                    print("FILE ERROR:", e)
+                    print("❌ IMAGE SAVE ERROR:", e)
                     filename = ""
 
             db = get_db()
+
             if db is None:
                 return "Database connection failed ❌"
 
             cursor = db.cursor()
 
             cursor.execute("""
-                INSERT INTO items(name,category,weight,purchase_price,quality,image)
+                INSERT INTO items
+                (name,category,weight,purchase_price,quality,image)
                 VALUES(%s,%s,%s,%s,%s,%s)
-            """, (name, category, weight, purchase, quality, filename))
+            """, (
+                name,
+                category,
+                weight,
+                purchase,
+                quality,
+                filename
+            ))
 
-            db.commit()   # 🔥 MOST IMPORTANT
+            db.commit()
+
+            print("✅ ITEM INSERTED")
 
             cursor.close()
             db.close()
@@ -216,8 +280,9 @@ def add():
             return redirect('/items')
 
         except Exception as e:
-            import traceback
-            print("ADD ERROR:", e)
+            print("❌ ADD ERROR:", e)
+            traceback.print_exc()
+
             return f"<pre>{traceback.format_exc()}</pre>"
 
     return render_template('add_edit.html', item=None)
@@ -226,20 +291,33 @@ def add():
 # DELETE
 @app.route('/delete/<int:id>')
 def delete(id):
+
     if 'user' not in session:
         return redirect('/')
 
     db = get_db()
-    cursor = db.cursor()
+
+    if db is None:
+        return "Database connection failed ❌"
 
     try:
-        cursor.execute("DELETE FROM items WHERE id=%s", (id,))
-        db.commit()
-    except Exception as e:
-        print("DELETE ERROR:", e)
+        cursor = db.cursor()
 
-    cursor.close()
-    db.close()
+        cursor.execute(
+            "DELETE FROM items WHERE id=%s",
+            (id,)
+        )
+
+        db.commit()
+
+        cursor.close()
+        db.close()
+
+        print("✅ ITEM DELETED")
+
+    except Exception as e:
+        print("❌ DELETE ERROR:", e)
+        traceback.print_exc()
 
     return redirect('/items')
 
@@ -247,16 +325,26 @@ def delete(id):
 # LOGOUT
 @app.route('/logout')
 def logout():
+
     session.pop('user', None)
+
     return redirect('/')
 
 
 # IMAGE
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
+
+    return send_from_directory(
+        UPLOAD_FOLDER,
+        filename
+    )
 
 
 # RUN LOCAL
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    app.run(
+        host="0.0.0.0",
+        port=10000,
+        debug=True
+    )

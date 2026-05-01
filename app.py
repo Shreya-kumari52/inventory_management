@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, session, send_from_directory
 import psycopg
+from psycopg.rows import dict_row
 import os
 import traceback
 
@@ -24,6 +25,7 @@ def get_db():
         print("DB ERROR:", e)
         return None
 
+
 # ================= UPLOAD ================= #
 
 UPLOAD_FOLDER = os.path.join("static", "uploads")
@@ -40,7 +42,7 @@ def init_db():
         return
 
     try:
-        cursor = db.cursor()
+        cursor = db.cursor(row_factory=dict_row)
 
         # USERS TABLE
         cursor.execute("""
@@ -121,7 +123,7 @@ def login():
             return "Database connection failed ❌"
 
         try:
-            cursor = db.cursor()
+            cursor = db.cursor(row_factory=dict_row)
 
             cursor.execute(
                 "SELECT * FROM users WHERE username=%s AND password=%s",
@@ -171,7 +173,7 @@ def items():
         return "Database connection failed ❌"
 
     try:
-        cursor = db.cursor()
+        cursor = db.cursor(row_factory=dict_row)
 
         cursor.execute("""
         SELECT * FROM items
@@ -244,7 +246,7 @@ def add():
             if db is None:
                 return "Database connection failed ❌"
 
-            cursor = db.cursor()
+            cursor = db.cursor(row_factory=dict_row)
 
             cursor.execute("""
                 INSERT INTO items
@@ -290,7 +292,7 @@ def delete(id):
         return "Database connection failed ❌"
 
     try:
-        cursor = db.cursor()
+        cursor = db.cursor(row_factory=dict_row)
 
         cursor.execute(
             "DELETE FROM items WHERE id=%s",

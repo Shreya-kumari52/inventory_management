@@ -16,24 +16,13 @@ def get_db():
     try:
         db_url = os.getenv("DATABASE_URL")
 
-        print("DATABASE URL:", db_url)
-
-        if not db_url:
-            raise Exception("DATABASE_URL missing ❌")
-
-        conn = psycopg.connect(
-            db_url,
-            connect_timeout=10
-        )
-
-        print("✅ DATABASE CONNECTED")
+        conn = psycopg.connect(db_url)
 
         return conn
 
     except Exception as e:
-        print("❌ DB CONNECTION ERROR:", e)
+        print("DB ERROR:", e)
         return None
-
 
 # ================= UPLOAD ================= #
 

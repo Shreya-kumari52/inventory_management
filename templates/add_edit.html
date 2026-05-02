@@ -1,56 +1,143 @@
 <!DOCTYPE html>
 <html>
+
 <head>
+
   <title>Deepak Paint & Hardware Store</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}">
+
 </head>
 
 <body>
 
-<!-- 🔥 NAVBAR -->
-<div class="navbar">➕ Add / Edit Item</div>
+<!-- NAVBAR -->
+<div class="navbar">
+  ➕ Add / Edit Item
+</div>
 
 <div class="container">
 
-<div class="box">
+  <!-- FORM BOX -->
+  <div class="box add-box">
 
-<form method="POST" enctype="multipart/form-data">
+    <form method="POST">
 
-  <label>Item Name</label>
-  <input name="name" value="{{item.name if item}}" placeholder="Enter item name" required>
+      <!-- ITEM NAME -->
+      <label class="form-label">
+        Item Name
+      </label>
 
-  <label>Category</label>
-  <select name="category">
-    <option {% if item and item.category=='Paint' %}selected{% endif %}>Paint</option>
-    <option {% if item and item.category=='Hardware' %}selected{% endif %}>Hardware</option>
-  </select>
+      <input
+        type="text"
+        name="name"
+        value="{{item.name if item}}"
+        placeholder="Enter item name"
+        required
+      >
 
-  <label>Weight</label>
-  <input name="weight" value="{{item.weight if item}}" placeholder="Enter weight" required>
+      <!-- CATEGORY -->
+      <label class="form-label">
+        Category
+      </label>
 
-  <label>Cost Price</label>
-  <input name="purchase" value="{{item.purchase_price if item}}" placeholder="Enter cost price" required>
+      <select name="category">
 
-  <label>Quality</label>
-  <input name="quality" value="{{item.quality if item}}" placeholder="Enter quality" required>
+        <option value="Paint"
+        {% if item and item.category=='Paint' %}
+        selected
+        {% endif %}
+        >
+        Paint
+        </option>
 
-  <label>Upload Image</label>
-  <input type="file" name="image">
+        <option value="Hardware"
+        {% if item and item.category=='Hardware' %}
+        selected
+        {% endif %}
+        >
+        Hardware
+        </option>
 
-  <button>💾 Save Item</button>
+      </select>
 
-</form>
+      <!-- WEIGHT -->
+      <label class="form-label">
+        Weight
+      </label>
+
+      <input
+        type="text"
+        name="weight"
+        value="{{item.weight if item}}"
+        placeholder="Enter weight"
+        required
+      >
+
+      <!-- PRICE -->
+      <label class="form-label">
+        Cost Price
+      </label>
+
+      <input
+        type="number"
+        step="0.01"
+        name="purchase"
+        value="{{item.purchase_price if item}}"
+        placeholder="Enter cost price"
+        required
+      >
+
+      <!-- QUALITY -->
+      <label class="form-label">
+        Quality
+      </label>
+
+      <input
+        type="text"
+        name="quality"
+        value="{{item.quality if item}}"
+        placeholder="Enter quality"
+        required
+      >
+
+      <!-- SAVE BUTTON -->
+      <button class="save-btn" type="submit">
+        💾 Save Item
+      </button>
+
+    </form>
+
+  </div>
 
 </div>
 
-</div>
-
-<!-- 🔥 MOBILE APP NAV -->
+<!-- MOBILE BOTTOM NAV -->
 <div class="bottom-nav">
-  <a href="/dashboard">🏠<span>Home</span></a>
-  <a href="/items">📦<span>Items</span></a>
-  <a href="/add" class="active">➕<span>Add</span></a>
-  <a href="/logout">🚪<span>Logout</span></a>
+
+  <a href="/dashboard">
+    🏠
+    <span>Home</span>
+  </a>
+
+  <a href="/items">
+    📦
+    <span>Items</span>
+  </a>
+
+  <a href="/add" class="active">
+    ➕
+    <span>Add</span>
+  </a>
+
+  <a href="/logout">
+    🚪
+    <span>Logout</span>
+  </a>
+
 </div>
 
 </body>

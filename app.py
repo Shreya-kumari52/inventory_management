@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session, send_from_directory
+from flask import Flask, render_template, request, redirect, session
 import psycopg
 from psycopg.rows import dict_row
 import os
@@ -17,7 +17,10 @@ def get_db():
     try:
         db_url = os.getenv("DATABASE_URL")
 
-        conn = psycopg.connect(db_url)
+        conn = psycopg.connect(
+            db_url,
+            row_factory=dict_row
+        )
 
         return conn
 
@@ -26,15 +29,10 @@ def get_db():
         return None
 
 
-# ================= UPLOAD ================= #
-
-UPLOAD_FOLDER = os.path.join("static", "uploads")
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-
 # ================= INIT DB ================= #
 
 def init_db():
+
     db = get_db()
 
     if db is None:
@@ -42,7 +40,7 @@ def init_db():
         return
 
     try:
-        cursor = db.cursor(row_factory=dict_row)
+        cursor = db.cursor()
 
         # USERS TABLE
         cursor.execute("""
@@ -61,8 +59,7 @@ def init_db():
             category TEXT,
             weight TEXT,
             purchase_price REAL,
-            quality TEXT,
-            image TEXT
+            quality TEXT
         )
         """)
 
@@ -100,8 +97,11 @@ def init_db():
 # ✅ RUN ONLY ONCE
 @app.before_request
 def setup():
+
     if not hasattr(app, "db_initialized"):
+
         init_db()
+
         app.db_initialized = True
 
 
@@ -110,6 +110,7 @@ def setup():
 # LOGIN
 @app.route('/', methods=['GET', 'POST'])
 def login():
+
     error = None
 
     if request.method == 'POST':
@@ -123,10 +124,13 @@ def login():
             return "Database connection failed ❌"
 
         try:
-            cursor = db.cursor(row_factory=dict_row)
+            cursor = db.cursor()
 
             cursor.execute(
-                "SELECT * FROM users WHERE username=%s AND password=%s",
+                """
+                SELECT * FROM users
+                WHERE username=%s AND password=%s
+                """,
                 (username, password)
             )
 
@@ -136,18 +140,26 @@ def login():
             db.close()
 
             if user:
+
                 session['user'] = username
+
                 return redirect('/dashboard')
 
             else:
                 error = "Invalid ID or Password"
 
         except Exception as e:
+
             print("❌ LOGIN ERROR:", e)
+
             traceback.print_exc()
+
             return f"<pre>{traceback.format_exc()}</pre>"
 
-    return render_template('login.html', error=error)
+    return render_template(
+        'login.html',
+        error=error
+    )
 
 
 # DASHBOARD
@@ -160,7 +172,8 @@ def dashboard():
     return render_template('dashboard.html')
 
 
-# ITEMS
+# ================= ITEMS ================= #
+
 @app.route('/items')
 def items():
 
@@ -173,12 +186,45 @@ def items():
         return "Database connection failed ❌"
 
     try:
-        cursor = db.cursor(row_factory=dict_row)
 
-        cursor.execute("""
+        # 🔍 SEARCH
+        search = request.args.get("search", "").strip()
+
+        # 🔍 CATEGORY
+        category = request.args.get("category", "").strip()
+
+        cursor = db.cursor()
+
+        query = """
         SELECT * FROM items
+        WHERE 1=1
+        """
+
+        params = []
+
+        # SEARCH FILTER
+        if search:
+
+            query += """
+            AND LOWER(name) LIKE %s
+            """
+
+            params.append(f"%{search.lower()}%")
+
+        # CATEGORY FILTER
+        if category:
+
+            query += """
+            AND category=%s
+            """
+
+            params.append(category)
+
+        query += """
         ORDER BY id DESC
-        """)
+        """
+
+        cursor.execute(query, params)
 
         data = cursor.fetchall()
 
@@ -186,21 +232,28 @@ def items():
         db.close()
 
     except Exception as e:
+
         print("❌ ITEMS ERROR:", e)
+
         traceback.print_exc()
+
         data = []
+
+        search = ""
+        category = ""
 
     return render_template(
         'items.html',
         items=data,
         page=1,
         total_pages=1,
-        search="",
-        category=""
+        search=search,
+        category=category
     )
 
 
-# ADD ITEM
+# ================= ADD ITEM ================= #
+
 @app.route('/add', methods=['GET', 'POST'])
 def add():
 
@@ -210,6 +263,7 @@ def add():
     if request.method == 'POST':
 
         try:
+
             name = request.form.get('name')
             category = request.form.get('category')
             weight = request.form.get('weight')
@@ -217,48 +271,37 @@ def add():
 
             # SAFE FLOAT
             try:
-                purchase = float(request.form.get('purchase', 0))
+                purchase = float(
+                    request.form.get('purchase', 0)
+                )
+
             except:
                 purchase = 0
-
-            filename = ""
-
-            # IMAGE
-            file = request.files.get('image')
-
-            if file and file.filename != "":
-
-                try:
-                    filename = file.filename
-
-                    save_path = os.path.join(UPLOAD_FOLDER, filename)
-
-                    file.save(save_path)
-
-                    print("✅ IMAGE SAVED:", save_path)
-
-                except Exception as e:
-                    print("❌ IMAGE SAVE ERROR:", e)
-                    filename = ""
 
             db = get_db()
 
             if db is None:
                 return "Database connection failed ❌"
 
-            cursor = db.cursor(row_factory=dict_row)
+            cursor = db.cursor()
 
+            # ✅ INSERT
             cursor.execute("""
                 INSERT INTO items
-                (name,category,weight,purchase_price,quality,image)
-                VALUES(%s,%s,%s,%s,%s,%s)
+                (
+                    name,
+                    category,
+                    weight,
+                    purchase_price,
+                    quality
+                )
+                VALUES(%s,%s,%s,%s,%s)
             """, (
                 name,
                 category,
                 weight,
                 purchase,
-                quality,
-                filename
+                quality
             ))
 
             db.commit()
@@ -271,15 +314,21 @@ def add():
             return redirect('/items')
 
         except Exception as e:
+
             print("❌ ADD ERROR:", e)
+
             traceback.print_exc()
 
             return f"<pre>{traceback.format_exc()}</pre>"
 
-    return render_template('add_edit.html', item=None)
+    return render_template(
+        'add_edit.html',
+        item=None
+    )
 
 
-# DELETE
+# ================= DELETE ================= #
+
 @app.route('/delete/<int:id>')
 def delete(id):
 
@@ -292,10 +341,14 @@ def delete(id):
         return "Database connection failed ❌"
 
     try:
-        cursor = db.cursor(row_factory=dict_row)
+
+        cursor = db.cursor()
 
         cursor.execute(
-            "DELETE FROM items WHERE id=%s",
+            """
+            DELETE FROM items
+            WHERE id=%s
+            """,
             (id,)
         )
 
@@ -307,13 +360,16 @@ def delete(id):
         print("✅ ITEM DELETED")
 
     except Exception as e:
+
         print("❌ DELETE ERROR:", e)
+
         traceback.print_exc()
 
     return redirect('/items')
 
 
-# LOGOUT
+# ================= LOGOUT ================= #
+
 @app.route('/logout')
 def logout():
 
@@ -322,18 +378,10 @@ def logout():
     return redirect('/')
 
 
-# IMAGE
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
+# ================= RUN LOCAL ================= #
 
-    return send_from_directory(
-        UPLOAD_FOLDER,
-        filename
-    )
-
-
-# RUN LOCAL
 if __name__ == "__main__":
+
     app.run(
         host="0.0.0.0",
         port=10000,

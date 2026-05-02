@@ -2,119 +2,186 @@
 <html>
 <head>
   <title>Deepak Paint & Hardware Store</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}">
 </head>
 
 <body>
 
-<div class="navbar">🎨 Deepak Paint & Hardware Store</div>
+<!-- NAVBAR -->
+<div class="navbar">
+  🎨 Deepak Paint & Hardware Store
+</div>
 
 <div class="container">
 
-<!-- 🔍 SEARCH -->
-<form method="GET" action="/items" class="top-bar">
-  <input name="search" placeholder="🔍 Search items..." value="{{search}}">
+  <!-- SEARCH -->
+  <form method="GET" action="/items" class="top-bar">
 
-  <select name="category">
-    <option value="">All</option>
-    <option {% if category=='Paint' %}selected{% endif %}>Paint</option>
-    <option {% if category=='Hardware' %}selected{% endif %}>Hardware</option>
-  </select>
+    <input
+      type="text"
+      name="search"
+      placeholder="🔍 Search item..."
+      value="{{search}}"
+    >
 
-  <button>Search</button>
-</form>
+    <select name="category">
 
-<!-- ➕ ADD -->
-<div style="text-align:center;">
-  <a href="/add"><button>+ Add Item</button></a>
-</div>
+      <option value="">All Category</option>
 
-<!-- 📦 ITEMS GRID -->
-<div class="grid">
+      <option value="Paint"
+      {% if category=='Paint' %}
+      selected
+      {% endif %}
+      >
+      Paint
+      </option>
 
-{% for item in items %}
-<div class="card">
+      <option value="Hardware"
+      {% if category=='Hardware' %}
+      selected
+      {% endif %}
+      >
+      Hardware
+      </option>
 
-  <!-- IMAGE -->
-  <div class="img-box">
-    <img src="{{ url_for('static', filename='uploads/' + item.image) }}"
-         class="card-img"
-         onclick="openImage(this.src)"
-         onerror="this.src='https://via.placeholder.com/200'">
-  </div>
+    </select>
 
-  <!-- DETAILS -->
-  <div class="card-body">
+    <button type="submit">
+      Search
+    </button>
 
-    <h3 class="item-title">{{item.name}}</h3>
+  </form>
 
-    <p class="item-weight">⚖ {{item.weight}}</p>
+  <!-- ADD BUTTON -->
+  <div class="add-btn-box">
 
-    <p class="item-price">💰 ₹{{item.purchase_price}}</p>
-
-    <p class="item-quality">⭐ {{item.quality}}</p>
-
-    <!-- ACTION -->
-    <div class="actions">
-      <a href="/edit/{{item.id}}">
-        <button class="edit">Edit</button>
-      </a>
-
-      <a href="/delete/{{item.id}}">
-        <button class="delete">Delete</button>
-      </a>
-    </div>
-
-  </div>
-
-</div>
-{% endfor %}
-
-</div>
-
-<!-- 🔥 PAGINATION -->
-<div class="pagination">
-
-  {% if page > 1 %}
-    <a href="/items?page={{page-1}}&search={{search}}&category={{category}}">
-      <button>⬅ Prev</button>
+    <a href="/add">
+      <button class="add-btn">
+        ➕ Add Item
+      </button>
     </a>
-  {% endif %}
 
-  {% for p in range(1, total_pages+1) %}
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrapper">
+
+    <table class="item-table">
+
+      <thead>
+
+        <tr>
+          <th>ID</th>
+          <th>Item Name</th>
+          <th>Category</th>
+          <th>Weight</th>
+          <th>Price</th>
+          <th>Quality</th>
+          <th>Action</th>
+        </tr>
+
+      </thead>
+
+      <tbody>
+
+      {% for item in items %}
+
+        <tr>
+
+          <td>{{item.id}}</td>
+
+          <td class="name-cell">
+            {{item.name}}
+          </td>
+
+          <td>
+            {{item.category}}
+          </td>
+
+          <td>
+            ⚖ {{item.weight}}
+          </td>
+
+          <td class="price-cell">
+            ₹{{item.purchase_price}}
+          </td>
+
+          <td>
+            ⭐ {{item.quality}}
+          </td>
+
+          <td>
+
+            <div class="actions">
+
+              <a href="/edit/{{item.id}}">
+                <button class="edit">
+                  Edit
+                </button>
+              </a>
+
+              <a href="/delete/{{item.id}}">
+                <button class="delete">
+                  Delete
+                </button>
+              </a>
+
+            </div>
+
+          </td>
+
+        </tr>
+
+      {% endfor %}
+
+      </tbody>
+
+    </table>
+
+  </div>
+
+  <!-- PAGINATION -->
+  <div class="pagination">
+
+    {% if page > 1 %}
+
+    <a href="/items?page={{page-1}}&search={{search}}&category={{category}}">
+      <button>
+        ⬅ Prev
+      </button>
+    </a>
+
+    {% endif %}
+
+    {% for p in range(1, total_pages+1) %}
+
     <a href="/items?page={{p}}&search={{search}}&category={{category}}">
+
       <button class="{% if p == page %}active{% endif %}">
         {{p}}
       </button>
-    </a>
-  {% endfor %}
 
-  {% if page < total_pages %}
+    </a>
+
+    {% endfor %}
+
+    {% if page < total_pages %}
+
     <a href="/items?page={{page+1}}&search={{search}}&category={{category}}">
-      <button>Next ➡</button>
+      <button>
+        Next ➡
+      </button>
     </a>
-  {% endif %}
+
+    {% endif %}
+
+  </div>
 
 </div>
-
-</div>
-
-<!-- 🔍 IMAGE POPUP -->
-<div id="imgModal" class="modal" onclick="closeImage()">
-  <span class="close">&times;</span>
-  <img class="modal-content" id="fullImg">
-</div>
-
-<script>
-function openImage(src) {
-  document.getElementById("imgModal").style.display = "flex";
-  document.getElementById("fullImg").src = src;
-}
-
-function closeImage() {
-  document.getElementById("imgModal").style.display = "none";
-}
-</script>
 
 </body>
 </html>

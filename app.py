@@ -327,6 +327,80 @@ def add():
     )
 
 
+
+# EDIT ITEM
+@app.route('/edit/<int:id>', methods=['GET', 'POST'])
+def edit(id):
+
+    if 'user' not in session:
+        return redirect('/')
+
+    db = get_db()
+
+    if db is None:
+        return "Database connection failed ❌"
+
+    cursor = db.cursor(row_factory=dict_row)
+
+    # GET ITEM
+    cursor.execute(
+        "SELECT * FROM items WHERE id=%s",
+        (id,)
+    )
+
+    item = cursor.fetchone()
+
+    # UPDATE
+    if request.method == 'POST':
+
+        try:
+            name = request.form.get('name')
+            category = request.form.get('category')
+            weight = request.form.get('weight')
+            purchase = request.form.get('purchase')
+            quality = request.form.get('quality')
+
+            cursor.execute("""
+                UPDATE items
+                SET
+                name=%s,
+                category=%s,
+                weight=%s,
+                purchase_price=%s,
+                quality=%s
+                WHERE id=%s
+            """, (
+                name,
+                category,
+                weight,
+                purchase,
+                quality,
+                id
+            ))
+
+            db.commit()
+
+            cursor.close()
+            db.close()
+
+            print("✅ ITEM UPDATED")
+
+            return redirect('/items')
+
+        except Exception as e:
+            print("❌ EDIT ERROR:", e)
+            traceback.print_exc()
+
+            return f"<pre>{traceback.format_exc()}</pre>"
+
+    cursor.close()
+    db.close()
+
+    return render_template(
+        'add_edit.html',
+        item=item
+    )
+
 # ================= DELETE ================= #
 
 @app.route('/delete/<int:id>')
